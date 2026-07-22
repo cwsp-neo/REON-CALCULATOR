@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RE:ON 구독료 산정 테이블 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --accent:  #2563eb;
+    --accent2: #7c3aed;
+    --green:   #059669;
+    --red:     #dc2626;
+    --amber:   #d97706;
+    --text:    #0f172a;
+    --text2:   #334155;
+    --text3:   #94a3b8;
+    --bg:      #f0f2f5;
+    --bg3:     #f8fafc;
+    --line:    #e2e8f0;
+    --line2:   #cbd5e1;
+    --radius:  8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 28px 24px;
+  }
+
+  .page-header {
+    max-width: 1300px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .logo-area { display: flex; align-items: center; gap: 12px; }
+  .logo-badge {
+    background: linear-gradient(135deg, #1e293b, #334155);
+    color: #fff; font-size: 13px; font-weight: 800;
+    padding: 6px 14px; border-radius: 8px; letter-spacing: 0.05em;
+  }
+  .page-title { font-size: 20px; font-weight: 700; color: var(--text); }
+  .page-sub   { font-size: 13px; color: var(--text3); margin-top: 2px; }
+
+  .mode-tabs {
+    max-width: 1300px; margin: 0 auto 16px;
+    display: inline-flex;
+    border: 1px solid var(--line2);
+    border-radius: 8px;
+    background: var(--bg3);
+    padding: 3px; gap: 3px;
+  }
+  .mode-tab {
+    padding: 7px 18px; border: none; border-radius: 6px;
+    background: transparent; color: var(--text2);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: all .2s; white-space: nowrap;
+  }
+  .mode-tab:hover { background: var(--line); }
+  .mode-tab.active { background: #1e293b; color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+
+  .card {
+    background: #fff; border-radius: var(--radius-lg);
+    border: 1px solid var(--line2); padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .card-title {
+    font-size: 13px; font-weight: 700; color: var(--text);
+    margin-bottom: 16px; display: flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%; padding: 9px 12px; font-size: 13px;
+    border: 1px solid var(--line2); border-radius: var(--radius);
+    background: var(--bg3); color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 5px; display: block; letter-spacing:.04em; text-transform:uppercase; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border: 1px solid var(--line2); border-radius: var(--radius);
+    background: #fff; color: var(--text2); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { background: var(--bg3); border-color: var(--accent); color: var(--accent); }
+
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th {
+    background: var(--bg3); padding: 10px 8px; font-size: 11px;
+    font-weight: 600; color: var(--text2); border-bottom: 2px solid var(--line2);
+    white-space: nowrap; text-align: center; line-height: 1.4;
+  }
+  th.grp1 { background: #eef2ff; color: var(--accent); }
+  th.grp2 { background: #f5f0ff; color: var(--accent2); }
+  th.grpsum { background: #1e293b; color: #fff; }
+  td {
+    padding: 10px 8px; font-size: 12px;
+    border-bottom: 1px solid var(--line); vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+  .col-sep { border-left: 2px solid var(--line2); }
+
+  .warn-box {
+    display: none; font-size: 12px; padding: 8px 13px; border-radius: var(--radius);
+    margin-bottom: 12px; background: #fff0f0; color: var(--red);
+    border: 1px solid rgba(220,38,38,.25); font-weight: 500;
+  }
+  .note-box {
+    font-size: 11.5px; color: var(--text3); margin-top: 10px; line-height: 1.6;
+  }
+
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .round-card {
+    border-radius: 10px; padding: 14px 16px; border: 1px solid var(--line2);
+  }
+  .round-card.r1 { background: #f7f9ff; border-color: #c7d5fb; }
+  .round-card.r2 { background: #faf7ff; border-color: #ddd0f7; }
+  .round-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; display:flex; align-items:center; gap:6px; }
+  .round-title.r1 { color: var(--accent); }
+  .round-title.r2 { color: var(--accent2); }
+
+  .badge {
+    display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:700;
+    background:#eef2ff; color:var(--accent);
+  }
+  .badge.combo { background:#f5f0ff; color:var(--accent2); }
+
+  @media (max-width: 860px) {
+    .grid-3 { grid-template-columns: 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    body { padding: 16px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="logo-area">
+    <div class="logo-badge">RE:ON</div>
+    <div>
+      <div class="page-title">📋 구독료 산정 테이블 생성기</div>
+      <div class="page-sub" id="pageSub">기준값 1개 입력 → 10,000원 단위 / 기간별 구간 자동 산출</div>
+    </div>
+  </div>
+  <button class="btn" onclick="gtReset()">↺ 초기화</button>
+</div>
+
+<div class="mode-tabs">
+  <button class="mode-tab active" id="tabFee"  onclick="setMode('fee')">📊 월구독료 기준</button>
+  <button class="mode-tab"        id="tabPay"  onclick="setMode('pay')">💰 정산금액 기준</button>
+  <button class="mode-tab"        id="tabPaySum" onclick="setMode('paysum')">💵 회독 정산금액 합계 기준</button>
+  <button class="mode-tab"        id="tabMax2" onclick="setMode('max2')">🎯 2회독 최대구독료</button>
+</div>
+
+<div style="max-width:1300px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+
+  <!-- 기본 설정 (공통) -->
+  <div class="card">
+    <div class="card-title"><span class="dot" style="background:var(--accent2);"></span>기본 설정</div>
+    <div class="grid-3">
+      <div>
+        <label class="form-label">제품원가 (VAT포함)</label>
+        <div style="position:relative;">
+          <input type="text" id="gt-cost" inputmode="numeric" placeholder="0"
+            style="padding-right:30px;text-align:right;" oninput="gtFmt(this);gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">서비스 구독료 (월)</label>
+        <div style="position:relative;">
+          <input type="text" id="gt-svc" inputmode="numeric" placeholder="0"
+            style="padding-right:30px;text-align:right;" oninput="gtFmt(this);gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">목표 수익률 (마진율)</label>
+        <div style="position:relative;">
+          <input type="number" id="gt-margin" value="20" min="0" max="100" step="0.1"
+            style="padding-right:28px;text-align:right;" oninput="gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ [모드1] 월구독료 기준 - 회차별 설정 ══ -->
+  <div id="feeInputs" class="grid-2">
+    <div class="round-card r1">
+      <div class="round-title r1">● 1회독 설정</div>
+      <div class="grid-2">
+        <div>
+          <label class="form-label">구독기간</label>
+          <select id="gt-term1" onchange="gtCalc()">
+            <option value="12">12개월</option>
+            <option value="24">24개월</option>
+            <option value="36" selected>36개월</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">기준 월구독료 (상단 1개)</label>
+          <div style="position:relative;">
+            <input type="text" id="gt-base1" inputmode="numeric" placeholder="0"
+              style="padding-right:30px;text-align:right;font-weight:700;" oninput="gtFmt(this);gtCalc()">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="round-card r2">
+      <div class="round-title r2">● 2회독 설정 (1회독에 이어서 진행)</div>
+      <div class="grid-2">
+        <div>
+          <label class="form-label">구독기간</label>
+          <select id="gt-term2" onchange="gtTerm2Change()">
+            <option value="12">12개월</option>
+            <option value="24">24개월</option>
+            <option value="36" selected>36개월</option>
+            <option value="0">없음 (1회독으로 종료)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">기준 월구독료 (상단 1개)</label>
+          <div style="position:relative;">
+            <input type="text" id="gt-base2" inputmode="numeric" placeholder="0"
+              style="padding-right:30px;text-align:right;font-weight:700;" oninput="gtFmt(this);gtCalc()">
+            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ [모드2] 정산금액 기준 - 입력 ══ -->
+  <div id="payInputs" class="card" style="display:none;">
+    <div class="card-title"><span class="dot" style="background:var(--amber);"></span>정산금액 입력</div>
+    <div class="grid-3">
+      <div>
+        <label class="form-label">목표 정산금액 (회차당)</label>
+        <div style="position:relative;">
+          <input type="text" id="gt-pay" inputmode="numeric" placeholder="0"
+            style="padding-right:30px;text-align:right;font-weight:700;" oninput="gtFmt(this);gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+        </div>
+      </div>
+    </div>
+    <div class="note-box" style="margin-top:10px;">
+      * 48/60/72개월은 36개월 1회독 + 나머지(12·24·36개월) 2회독으로 구성되며, 각 회차마다 동일한 목표 정산금액을 받도록 월구독료를 역산합니다.
+    </div>
+  </div>
+
+  <!-- ══ [모드2-B] 정산금액 합계 기준 - 입력 ══ -->
+  <div id="paySumInputs" class="card" style="display:none;">
+    <div class="card-title"><span class="dot" style="background:#be185d;"></span>정산금액 합계 입력</div>
+    <div class="grid-3">
+      <div>
+        <label class="form-label">목표 정산금액 (1회독+2회독 합계)</label>
+        <div style="position:relative;">
+          <input type="text" id="gt-paysum" inputmode="numeric" placeholder="0"
+            style="padding-right:30px;text-align:right;font-weight:700;" oninput="gtFmt(this);gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+        </div>
+      </div>
+    </div>
+    <div class="note-box" style="margin-top:10px;">
+      * 48/60/72개월은 36개월 1회독 + 나머지(12·24·36개월) 2회독으로 구성됩니다. 전 기간 동일한 월구독료가 유지된다고 가정하고, 1회독+2회독 정산금액의 <b>합계</b>가 입력한 목표값이 되도록 월구독료를 역산합니다.
+    </div>
+  </div>
+
+  <!-- ══ [모드3] 2회독 최대구독료 산출 - 입력 ══ -->
+  <div id="max2Inputs" class="card" style="display:none;">
+    <div class="card-title"><span class="dot" style="background:#0891b2;"></span>1회독 기준 월구독료 입력 → 2회독 최대 월구독료 산출</div>
+    <div class="grid-3">
+      <div>
+        <label class="form-label">1회독 구독기간</label>
+        <select id="gt-m2-term1" onchange="gtCalc()">
+          <option value="12">12개월</option>
+          <option value="24">24개월</option>
+          <option value="36" selected>36개월</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">1회독 기준 월구독료 (상단 1개)</label>
+        <div style="position:relative;">
+          <input type="text" id="gt-m2-base1" inputmode="numeric" placeholder="0"
+            style="padding-right:30px;text-align:right;font-weight:700;" oninput="gtFmt(this);gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">2회독 구독기간</label>
+        <select id="gt-m2-term2" onchange="gtCalc()">
+          <option value="12">12개월</option>
+          <option value="24">24개월</option>
+          <option value="36" selected>36개월</option>
+        </select>
+      </div>
+    </div>
+    <div class="note-box" style="margin-top:10px;">
+      * 1회독 기준 월구독료를 1개 입력하면 10,000원 단위로 인하되는 10개 구간이 자동 산출되고, 각 구간의 1회독 정산금액·RV를 계산한 뒤, 2회독 종료 잔가율이 제품원가의 10% 미만으로 떨어지지 않는 선에서 2회독에 부과 가능한 <b>최대 월구독료(10,000원 단위 내림)</b>를 구간별로 산출합니다.
+    </div>
+  </div>
+
+  <!-- 결과 테이블 -->
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span class="dot" style="background:var(--green);"></span>
+        <span id="tblTitle">구독료 산정 테이블</span>
+      </div>
+      <button class="btn" onclick="downloadExcel()" style="border-color:#059669;color:#059669;">📥 엑셀 다운로드</button>
+    </div>
+
+    <div id="gt-warn-rv" class="warn-box">⚠ 일부 구간에서 종료 잔가율이 10% 미만 또는 95% 초과입니다 — 해당 구간은 정상 범위 이탈로 표시됩니다</div>
+
+    <div class="tbl-wrap">
+      <table id="feeTable">
+        <thead>
+          <tr>
+            <th rowspan="2">구간</th>
+            <th class="grp1" colspan="4">1회독</th>
+            <th class="grp2 col-sep" colspan="4">2회독</th>
+            <th class="grpsum col-sep" rowspan="2">1회독+2회독<br>정산금액</th>
+          </tr>
+          <tr>
+            <th class="grp1">월구독료</th><th class="grp1">총구독료</th><th class="grp1">정산금액</th><th class="grp1">RV</th>
+            <th class="grp2 col-sep">월구독료</th><th class="grp2">총구독료</th><th class="grp2">정산금액</th><th class="grp2">RV</th>
+          </tr>
+        </thead>
+        <tbody id="gt-tbody"></tbody>
+      </table>
+
+      <table id="payTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>총 구독기간</th>
+            <th>구성</th>
+            <th class="grp1">1회독 월구독료</th>
+            <th class="grp2">2회독 월구독료</th>
+            <th>총구독료</th>
+            <th class="grpsum">정산금액 합계</th>
+            <th>RV금액</th>
+            <th>잔가율</th>
+          </tr>
+        </thead>
+        <tbody id="gt-tbody-pay"></tbody>
+      </table>
+
+      <table id="paySumTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>총 구독기간</th>
+            <th>구성</th>
+            <th class="grp1">1회독 월구독료</th>
+            <th class="grp2">2회독 월구독료</th>
+            <th>총구독료</th>
+            <th class="grpsum">정산금액 합계</th>
+            <th>RV금액</th>
+            <th>잔가율</th>
+          </tr>
+        </thead>
+        <tbody id="gt-tbody-paysum"></tbody>
+      </table>
+
+      <table id="max2Table" style="display:none;">
+        <thead>
+          <tr>
+            <th rowspan="2">구간</th>
+            <th class="grp1" colspan="5">1회독</th>
+            <th class="grp2 col-sep" colspan="5">2회독 (최대 구독료)</th>
+            <th class="grpsum col-sep" rowspan="2">1회독+2회독<br>정산금액</th>
+          </tr>
+          <tr>
+            <th class="grp1">월구독료</th><th class="grp1">총구독료</th><th class="grp1">정산금액</th><th class="grp1">RV</th><th class="grp1">잔가율</th>
+            <th class="grp2 col-sep">최대 월구독료</th><th class="grp2">총구독료</th><th class="grp2">정산금액</th><th class="grp2">RV</th><th class="grp2">잔가율</th>
+          </tr>
+        </thead>
+        <tbody id="gt-tbody-max2"></tbody>
+      </table>
+    </div>
+
+    <div class="note-box" id="noteFee">
+      * 정산금액 = 월구독료 × PV계수(연 8% 할인) − KBR 수수료(10%) × 구독기간<br>
+      * 1회독 RV금액 = 제품원가 × (1 + 목표수익률) + 서비스구독료 누계 − 1회독 정산금액<br>
+      * 2회독 RV금액 = 1회독 종료 RV × (1 + 목표수익률) + 서비스구독료 누계 − 2회독 정산금액 (2회독은 1회독 종료 시점의 RV를 이어받아 계산)<br>
+      * 각 회차 기준 월구독료를 1개씩 입력하면 10,000원 단위로 인하되는 10개 구간이 1:1로 매칭되어 자동 산출됩니다 (1구간 = 두 회독 모두 기준값)<br>
+      * 잔가율 기준: 하한(10%)은 항상 제품원가 대비로 판정하고, 상한(95%)은 각 회차의 시작 원금 대비로 판정합니다 — 1회독은 제품원가, 2회독은 1회독 종료 RV(=2회독 시작 원금) 기준입니다. 둘 중 하나라도 벗어나면 붉은색으로 표시됩니다
+    </div>
+    <div class="note-box" id="notePay" style="display:none;">
+      * 월구독료 = 정산금액 ÷ (PV계수(연 8% 할인) − KBR 수수료(10%) × 구독기간) — 정산금액 산식의 역산, 100원 단위 올림 처리<br>
+      * 월구독료를 100원 단위로 올림한 뒤, 올림된 구독료 기준으로 실제 정산금액·RV를 재계산합니다 (목표 정산금액보다 소폭 높게 산출될 수 있음)<br>
+      * 12·24·36개월은 단일 회차, 48·60·72개월은 36개월 1회독 + 나머지 2회독 조합입니다 (36+12, 36+24, 36+36)<br>
+      * 2회독의 RV는 1회독 종료 시점의 RV를 이어받아 계산합니다<br>
+      * 잔가율 기준: 하한(10%)은 항상 제품원가 대비로 판정하고, 상한(95%)은 최종 회차의 시작 원금 대비로 판정합니다 (48·60·72개월은 1회독 종료 RV가 2회독의 시작 원금이 됩니다). 표에 표시되는 잔가율은 제품원가 대비 값이며, 둘 중 하나라도 벗어나면 붉은색으로 표시됩니다
+    </div>
+    <div class="note-box" id="notePaySum" style="display:none;">
+      * 전 기간 동일한 월구독료(G)가 유지된다고 가정하고, 1회독 정산금액 + 2회독 정산금액의 <b>합계</b>가 목표 정산금액이 되도록 역산합니다: G = 목표 정산금액 ÷ (1회독 PV계수−KBR수수료×1회독기간 + 2회독 PV계수−KBR수수료×2회독기간)<br>
+      * 12·24·36개월(단일 회차)은 기존 정산금액 기준 탭과 동일하게 계산됩니다<br>
+      * 월구독료는 100원 단위로 올림한 뒤, 올림된 구독료 기준으로 실제 정산금액 합계·RV를 재계산합니다 (목표 정산금액 합계보다 소폭 높게 산출될 수 있음)<br>
+      * 2회독의 RV는 1회독 종료 시점의 RV를 이어받아 계산합니다<br>
+      * 잔가율 기준: 하한(10%)은 제품원가 대비, 상한(95%)은 최종 회차의 시작 원금 대비로 판정하며, 둘 중 하나라도 벗어나면 붉은색으로 표시됩니다
+    </div>
+    <div class="note-box" id="noteMax2" style="display:none;">
+      * 1회독 기준 월구독료 1개를 입력하면 10,000원 단위로 인하되는 10개 구간이 자동 산출됩니다<br>
+      * 1회독 RV = 제품원가 × (1 + 목표수익률) + 1회독 서비스구독료 누계 − 1회독 정산금액<br>
+      * 2회독 최대 월구독료 = 2회독 종료 RV가 제품원가의 10%(하한)에 정확히 도달하는 지점을 구간별로 구한 뒤, 10,000원 단위로 <b>내림</b>한 값입니다 (내림하지 않으면 하한 10%를 살짝 밑돌 수 있기 때문입니다)<br>
+      * 이 최대값보다 낮은 월구독료는 모두 하한 10% 기준을 만족하며, 이보다 높이면 잔가율이 10% 미만으로 떨어져 진행이 불가합니다<br>
+      * 상한(95%, 각 회차 시작 원금 대비)도 함께 확인하며, 두 기준 중 하나라도 벗어나면 붉은색으로 표시됩니다
+    </div>
+  </div>
+
+</div>
+
+<script>
+const FACTOR_RATE = 8;      // 팩토링 할인율 연%
+const KBR_FIXED   = 0;      // KBR 월 고정 수수료
+const KBR_PCT     = 0.10;   // KBR 변동 수수료 10%
+const RC_FLOOR_RV = 10;     // 잔가율 최소 10%
+const RC_CAP_RV   = 95;     // 잔가율 최대 95%
+const STEP        = 10000;  // 10,000원 단위
+const ROWS        = 10;
+
+let _mode = 'fee';
+
+function gtFmt(el){
+  const raw = el.value.replace(/[^0-9]/g,'');
+  el.value = raw ? parseInt(raw).toLocaleString('ko-KR') : '';
+}
+function numVal(id){
+  const el = document.getElementById(id);
+  return el ? (parseInt((el.value||'0').replace(/,/g,''))||0) : 0;
+}
+function fltVal(id){ return parseFloat(document.getElementById(id)?.value)||0; }
+function fmtW(n){ return (!isFinite(n)||isNaN(n)) ? '-' : Math.round(n).toLocaleString('ko-KR')+'원'; }
+function fmtP(n){ return (!isFinite(n)||isNaN(n)) ? '-' : n.toFixed(2)+'%'; }
+function PVF(rM,n){ if(n<=0) return 0; if(rM===0) return n; return (1-Math.pow(1+rM,-n))/rM; }
+function rvPctOf(rv, basis){
+  if(basis>0) return rv/basis*100;
+  return rv>0 ? Infinity : 0;
+}
+
+/* ─── 모드 전환 ─── */
+function setMode(mode){
+  _mode = mode;
+  document.getElementById('tabFee').classList.toggle('active', mode==='fee');
+  document.getElementById('tabPay').classList.toggle('active', mode==='pay');
+  document.getElementById('tabPaySum').classList.toggle('active', mode==='paysum');
+  document.getElementById('tabMax2').classList.toggle('active', mode==='max2');
+  document.getElementById('feeInputs').style.display = mode==='fee' ? '' : 'none';
+  document.getElementById('payInputs').style.display = mode==='pay' ? '' : 'none';
+  document.getElementById('paySumInputs').style.display = mode==='paysum' ? '' : 'none';
+  document.getElementById('max2Inputs').style.display = mode==='max2' ? '' : 'none';
+  document.getElementById('feeTable').style.display   = mode==='fee' ? '' : 'none';
+  document.getElementById('payTable').style.display   = mode==='pay' ? '' : 'none';
+  document.getElementById('paySumTable').style.display = mode==='paysum' ? '' : 'none';
+  document.getElementById('max2Table').style.display  = mode==='max2' ? '' : 'none';
+  document.getElementById('noteFee').style.display    = mode==='fee' ? '' : 'none';
+  document.getElementById('notePay').style.display    = mode==='pay' ? '' : 'none';
+  document.getElementById('notePaySum').style.display = mode==='paysum' ? '' : 'none';
+  document.getElementById('noteMax2').style.display   = mode==='max2' ? '' : 'none';
+  document.getElementById('pageSub').textContent = mode==='fee'
+    ? '1회독 · 2회독 각 기준 월구독료 입력 → 10,000원 단위 10개 구간 자동 산출'
+    : mode==='pay'
+    ? '목표 정산금액(회차당) 1개 입력 → 12/24/36/48/60/72개월 구독료 자동 역산'
+    : mode==='paysum'
+    ? '목표 정산금액 합계 1개 입력 → 12/24/36/48/60/72개월 동일 구독료 자동 역산'
+    : '1회독 기준 월구독료 입력 → 2회독 최대 가능 월구독료(10,000원 단위) 자동 산출';
+  gtCalc();
+}
+
+/* ─── [모드1] 월구독료 기준 ─── */
+function gtBuildRange(base){
+  const vals = [];
+  for(let i=0;i<ROWS;i++) vals.push(base - STEP*i);
+  return vals;
+}
+
+function calcFeeMode(cost,svc,mrg){
+  const term1 = parseInt(document.getElementById('gt-term1').value)||0;
+  const term2Raw = document.getElementById('gt-term2').value;
+  const hasR2 = term2Raw !== '0';
+  const term2 = hasR2 ? (parseInt(term2Raw)||0) : 0;
+  const base1 = numVal('gt-base1');
+  const base2 = hasR2 ? numVal('gt-base2') : 0;
+
+  document.getElementById('tblTitle').textContent = hasR2
+    ? `구독료 산정 테이블 · 총 ${term1+term2}개월 (${term1}개월 + ${term2}개월)`
+    : `구독료 산정 테이블 · 총 ${term1}개월 (1회독 단독 종료)`;
+
+  const tbody = document.getElementById('gt-tbody');
+  tbody.innerHTML = '';
+  document.getElementById('gt-warn-rv').style.display = 'none';
+
+  if(base1===0 || term1===0 || (hasR2 && base2===0)){
+    const msg = hasR2
+      ? '1회독·2회독 기준 월구독료와 구독기간을 모두 입력하면 테이블이 생성됩니다'
+      : '1회독 기준 월구독료와 구독기간을 입력하면 테이블이 생성됩니다';
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:24px;">${msg}</td></tr>`;
+    return;
+  }
+
+  const rM = FACTOR_RATE/100/12;
+  const pvf1 = PVF(rM, term1);
+  const pvf2 = hasR2 ? PVF(rM, term2) : 0;
+  const ops1 = svc*term1;
+  const ops2 = hasR2 ? svc*term2 : 0;
+
+  const range1 = gtBuildRange(base1);
+  const range2 = hasR2 ? gtBuildRange(base2) : [];
+  let anyLow = false;
+  let html = '';
+
+  for(let i=0;i<ROWS;i++){
+    const G1 = range1[i];
+    const G2 = hasR2 ? range2[i] : null;
+    if(G1<=0 || (hasR2 && G2<=0)){
+      html += `<tr><td style="text-align:center;">${i+1}</td><td colspan="9" style="text-align:center;color:var(--text3);">- (구독료 0원 이하)</td></tr>`;
+      continue;
+    }
+
+    const totalG1 = G1*term1;
+    const pay1    = G1*pvf1 - (KBR_FIXED + G1*KBR_PCT)*term1;
+    let rv1       = cost*(1+mrg/100) + ops1 - pay1;
+    if(rv1 < 0) rv1 = 0;
+
+    // 하한(10%)은 항상 제품원가 대비, 상한(95%)은 각 회차 시작 원금(=그 회차 기준 RV) 대비
+    const rv1FloorPct = rvPctOf(rv1, cost);
+    const rv1CapPct   = rv1FloorPct; // 1회독은 시작원금=제품원가이므로 동일
+    const isLow1 = rv1FloorPct < RC_FLOOR_RV || rv1CapPct > RC_CAP_RV;
+
+    let totalG2=0, pay2=0, rv2=rv1, isLow2=false;
+    if(hasR2){
+      totalG2 = G2*term2;
+      pay2    = G2*pvf2 - (KBR_FIXED + G2*KBR_PCT)*term2;
+      rv2     = rv1*(1+mrg/100) + ops2 - pay2;
+      if(rv2 < 0) rv2 = 0;
+      const rv2FloorPct = rvPctOf(rv2, cost);
+      const rv2CapPct   = rvPctOf(rv2, rv1);
+      isLow2 = rv2FloorPct < RC_FLOOR_RV || rv2CapPct > RC_CAP_RV;
+    }
+
+    const isLow  = isLow1 || isLow2;
+    if(isLow) anyLow = true;
+    const isBase = (G1===base1 && (!hasR2 || G2===base2));
+    const combined = pay1 + pay2;
+
+    html += `<tr style="${isBase?'background:#f0f5ff;':''}${isLow?'background:rgba(220,38,38,0.06);':''}">
+      <td style="text-align:center;font-weight:600;">${i+1}${isBase?' <span style="color:var(--accent);font-size:10px;">(기준)</span>':''}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:600;">${fmtW(G1)}</td>
+      <td style="text-align:right;font-family:monospace;">${fmtW(totalG1)}</td>
+      <td style="text-align:right;font-family:monospace;color:var(--accent);font-weight:600;">${fmtW(pay1)}</td>
+      <td style="text-align:right;font-family:monospace;${isLow1?'color:var(--red);font-weight:700;':''}">${fmtW(rv1)}${isLow1?' ⚠':''}</td>
+      <td class="col-sep" style="text-align:right;font-family:monospace;font-weight:600;">${hasR2?fmtW(G2):'-'}</td>
+      <td style="text-align:right;font-family:monospace;">${hasR2?fmtW(totalG2):'-'}</td>
+      <td style="text-align:right;font-family:monospace;color:var(--accent2);font-weight:600;">${hasR2?fmtW(pay2):'-'}</td>
+      <td style="text-align:right;font-family:monospace;${hasR2&&isLow2?'color:var(--red);font-weight:700;':''}">${hasR2?fmtW(rv2)+(isLow2?' ⚠':''):'-'}</td>
+      <td class="col-sep" style="text-align:right;font-family:monospace;font-weight:700;background:#f8fafc;">${fmtW(combined)}</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html;
+  document.getElementById('gt-warn-rv').style.display = anyLow ? '' : 'none';
+}
+
+function gtTerm2Change(){
+  const hasR2 = document.getElementById('gt-term2').value !== '0';
+  const base2El = document.getElementById('gt-base2');
+  base2El.disabled = !hasR2;
+  base2El.placeholder = hasR2 ? '0' : '해당 없음';
+  if(!hasR2) base2El.value = '';
+  gtCalc();
+}
+
+
+/* ─── [모드2] 정산금액 기준 ─── */
+const PAY_TERMS = [
+  {total:12, combo:[12]},
+  {total:24, combo:[24]},
+  {total:36, combo:[36]},
+  {total:48, combo:[36,12]},
+  {total:60, combo:[36,24]},
+  {total:72, combo:[36,36]},
+];
+
+function calcPayMode(cost,svc,mrg){
+  document.getElementById('tblTitle').textContent = '정산금액 기준 구독료 역산 테이블';
+
+  const pay = numVal('gt-pay');
+  const tbody = document.getElementById('gt-tbody-pay');
+  tbody.innerHTML = '';
+  document.getElementById('gt-warn-rv').style.display = 'none';
+
+  if(pay===0){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">목표 정산금액을 입력하면 테이블이 생성됩니다</td></tr>`;
+    return;
+  }
+
+  const rM = FACTOR_RATE/100/12;
+  let anyLow = false;
+  let html = '';
+
+  PAY_TERMS.forEach(row=>{
+    const combo = row.combo;
+    let prevRv = cost;
+    let totalGross = 0, totalPay = 0;
+    let G1=null, G2=null;
+    let rv1 = null;
+    let invalid = false;
+
+    combo.forEach((term, idx)=>{
+      const pvf = PVF(rM, term);
+      const denom = pvf - KBR_PCT*term;
+      if(denom<=0){ invalid = true; return; }
+      let G = pay/denom;
+      G = Math.ceil(G/100)*100;  // 100원 단위 올림
+      const actualPay = G*pvf - (KBR_FIXED + G*KBR_PCT)*term;  // 올림된 구독료 기준 실제 정산금액
+      if(idx===0) G1=G; else G2=G;
+      totalGross += G*term;
+      totalPay   += actualPay;
+      const ops = svc*term;
+      let rv = prevRv*(1+mrg/100) + ops - actualPay;
+      if(rv<0) rv=0;
+      prevRv = rv;
+      if(idx===0) rv1 = rv;
+    });
+
+    if(invalid){
+      html += `<tr><td style="text-align:center;">${row.total}개월</td><td colspan="7" style="text-align:center;color:var(--text3);">- (역산 불가)</td></tr>`;
+      return;
+    }
+
+    // 하한(10%)은 항상 제품원가 대비, 상한(95%)은 최종 회차 시작 원금 대비
+    const finalBasis  = (combo.length>1) ? rv1 : cost;
+    const rvFloorPct  = rvPctOf(prevRv, cost);        // 표시 및 하한 체크
+    const rvCapPct    = rvPctOf(prevRv, finalBasis);  // 상한 체크 전용
+    const rv1Pct      = (combo.length>1) ? rvPctOf(rv1, cost) : null;  // 1회독은 시작원금=제품원가
+
+    const isLowFinal = rvFloorPct < RC_FLOOR_RV || rvCapPct > RC_CAP_RV;
+    const isLow1     = rv1Pct !== null && (rv1Pct < RC_FLOOR_RV || rv1Pct > RC_CAP_RV);
+    const isLow = isLowFinal || isLow1;
+    if(isLow) anyLow = true;
+    const comboLabel = combo.length===1 ? `단일 ${combo[0]}개월` : `${combo[0]}+${combo[1]}개월`;
+    const badgeClass = combo.length===1 ? 'badge' : 'badge combo';
+
+    html += `<tr style="${isLow?'background:rgba(220,38,38,0.06);':''}">
+      <td style="text-align:center;font-weight:700;">${row.total}개월</td>
+      <td style="text-align:center;"><span class="${badgeClass}">${comboLabel}</span></td>
+      <td style="text-align:right;font-family:monospace;font-weight:600;${isLow1?'color:var(--red);':'color:var(--accent);'}">${fmtW(G1)}${isLow1?' ⚠':''}</td>
+      <td style="text-align:right;font-family:monospace;color:var(--accent2);font-weight:600;">${G2!==null?fmtW(G2):'-'}</td>
+      <td style="text-align:right;font-family:monospace;">${fmtW(totalGross)}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:700;background:#f8fafc;">${fmtW(totalPay)}</td>
+      <td style="text-align:right;font-family:monospace;${isLowFinal?'color:var(--red);font-weight:700;':''}">${fmtW(prevRv)}${isLowFinal?' ⚠':''}</td>
+      <td style="text-align:center;font-weight:600;${isLowFinal?'color:var(--red);':''}">${fmtP(rvFloorPct)}${isLowFinal?' ⚠':''}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  document.getElementById('gt-warn-rv').style.display = anyLow ? '' : 'none';
+}
+
+/* ─── 메인 디스패처 ─── */
+/* ─── [모드2-B] 정산금액 합계 기준 (전 기간 동일 월구독료) ─── */
+function calcPaySumMode(cost,svc,mrg){
+  document.getElementById('tblTitle').textContent = '정산금액 합계 기준 구독료 역산 테이블';
+
+  const paySum = numVal('gt-paysum');
+  const tbody = document.getElementById('gt-tbody-paysum');
+  tbody.innerHTML = '';
+  document.getElementById('gt-warn-rv').style.display = 'none';
+
+  if(paySum===0){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px;">목표 정산금액 합계를 입력하면 테이블이 생성됩니다</td></tr>`;
+    return;
+  }
+
+  const rM = FACTOR_RATE/100/12;
+  let anyLow = false;
+  let html = '';
+
+  PAY_TERMS.forEach(row=>{
+    const combo = row.combo;
+
+    // 회차별 denom 계산, 전 기간 동일 G로 목표 합계를 만족시키는 G를 먼저 구함
+    const denoms = combo.map(term=>{
+      const pvf = PVF(rM, term);
+      return pvf - KBR_PCT*term;
+    });
+    const denomSum = denoms.reduce((a,b)=>a+b, 0);
+
+    if(denomSum<=0){
+      html += `<tr><td style="text-align:center;">${row.total}개월</td><td colspan="7" style="text-align:center;color:var(--text3);">- (역산 불가)</td></tr>`;
+      return;
+    }
+
+    let G = paySum/denomSum;
+    G = Math.ceil(G/100)*100;  // 100원 단위 올림
+
+    let prevRv = cost;
+    let totalGross = 0, totalPay = 0;
+    let G1=null, G2=null;
+    let rv1 = null;
+
+    combo.forEach((term, idx)=>{
+      const pvf = PVF(rM, term);
+      const actualPay = G*pvf - (KBR_FIXED + G*KBR_PCT)*term;  // 동일 구독료(G) 기준 실제 정산금액
+      if(idx===0) G1=G; else G2=G;
+      totalGross += G*term;
+      totalPay   += actualPay;
+      const ops = svc*term;
+      let rv = prevRv*(1+mrg/100) + ops - actualPay;
+      if(rv<0) rv=0;
+      prevRv = rv;
+      if(idx===0) rv1 = rv;
+    });
+
+    // 하한(10%)은 항상 제품원가 대비, 상한(95%)은 최종 회차 시작 원금 대비
+    const finalBasis  = (combo.length>1) ? rv1 : cost;
+    const rvFloorPct  = rvPctOf(prevRv, cost);
+    const rvCapPct    = rvPctOf(prevRv, finalBasis);
+    const rv1Pct      = (combo.length>1) ? rvPctOf(rv1, cost) : null;
+
+    const isLowFinal = rvFloorPct < RC_FLOOR_RV || rvCapPct > RC_CAP_RV;
+    const isLow1     = rv1Pct !== null && (rv1Pct < RC_FLOOR_RV || rv1Pct > RC_CAP_RV);
+    const isLow = isLowFinal || isLow1;
+    if(isLow) anyLow = true;
+    const comboLabel = combo.length===1 ? `단일 ${combo[0]}개월` : `${combo[0]}+${combo[1]}개월`;
+    const badgeClass = combo.length===1 ? 'badge' : 'badge combo';
+
+    html += `<tr style="${isLow?'background:rgba(220,38,38,0.06);':''}">
+      <td style="text-align:center;font-weight:700;">${row.total}개월</td>
+      <td style="text-align:center;"><span class="${badgeClass}">${comboLabel}</span></td>
+      <td style="text-align:right;font-family:monospace;font-weight:600;${isLow1?'color:var(--red);':'color:var(--accent);'}">${fmtW(G1)}${isLow1?' ⚠':''}</td>
+      <td style="text-align:right;font-family:monospace;color:var(--accent2);font-weight:600;">${G2!==null?fmtW(G2):'-'}</td>
+      <td style="text-align:right;font-family:monospace;">${fmtW(totalGross)}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:700;background:#f8fafc;">${fmtW(totalPay)}</td>
+      <td style="text-align:right;font-family:monospace;${isLowFinal?'color:var(--red);font-weight:700;':''}">${fmtW(prevRv)}${isLowFinal?' ⚠':''}</td>
+      <td style="text-align:center;font-weight:600;${isLowFinal?'color:var(--red);':''}">${fmtP(rvFloorPct)}${isLowFinal?' ⚠':''}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html;
+  document.getElementById('gt-warn-rv').style.display = anyLow ? '' : 'none';
+}
+
+/* ─── [모드3] 2회독 최대구독료 산출 ─── */
+function calcMax2Mode(cost,svc,mrg){
+  document.getElementById('tblTitle').textContent = '2회독 최대 월구독료 산출';
+
+  const term1 = parseInt(document.getElementById('gt-m2-term1').value)||0;
+  const term2 = parseInt(document.getElementById('gt-m2-term2').value)||0;
+  const base1 = numVal('gt-m2-base1');
+
+  const tbody = document.getElementById('gt-tbody-max2');
+  tbody.innerHTML = '';
+  document.getElementById('gt-warn-rv').style.display = 'none';
+
+  if(base1===0 || term1===0 || term2===0){
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--text3);padding:24px;">1회독 기준 월구독료와 구독기간을 입력하면 산출됩니다</td></tr>`;
+    return;
+  }
+
+  const rM = FACTOR_RATE/100/12;
+  const ops1 = svc*term1;
+  const ops2 = svc*term2;
+  const pvf1 = PVF(rM, term1);
+  const pvf2 = PVF(rM, term2);
+  const denom2 = pvf2 - KBR_PCT*term2;
+  const floorAmt = cost*(RC_FLOOR_RV/100);
+
+  if(denom2<=0){
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;color:var(--text3);">- (2회독 구독기간 역산 불가)</td></tr>`;
+    return;
+  }
+
+  const range1 = gtBuildRange(base1);
+  let anyLow = false;
+  let html = '';
+
+  for(let i=0;i<ROWS;i++){
+    const G1 = range1[i];
+    if(G1<=0){
+      html += `<tr><td style="text-align:center;">${i+1}</td><td colspan="11" style="text-align:center;color:var(--text3);">- (구독료 0원 이하)</td></tr>`;
+      continue;
+    }
+
+    const totalG1 = G1*term1;
+    const pay1    = G1*pvf1 - (KBR_FIXED + G1*KBR_PCT)*term1;
+    let rv1       = cost*(1+mrg/100) + ops1 - pay1;
+    if(rv1 < 0) rv1 = 0;
+    const rv1FloorPct = rvPctOf(rv1, cost);
+    const isLow1 = rv1FloorPct < RC_FLOOR_RV || rv1FloorPct > RC_CAP_RV;
+
+    // 2회독 최대 월구독료: RV2가 하한(제품원가*10%)에 도달하는 지점까지, 10,000원 내림
+    const g2Continuous = (rv1*(1+mrg/100) + ops2 - floorAmt) / denom2;
+    let g2Max = Math.floor(g2Continuous/STEP)*STEP;
+    if(g2Max < 0) g2Max = 0;
+
+    const totalG2 = g2Max*term2;
+    const pay2    = g2Max*pvf2 - (KBR_FIXED + g2Max*KBR_PCT)*term2;
+    let rv2       = rv1*(1+mrg/100) + ops2 - pay2;
+    if(rv2 < 0) rv2 = 0;
+    const rv2FloorPct = rvPctOf(rv2, cost);
+    const rv2CapPct   = rvPctOf(rv2, rv1);
+    const isLow2 = rv2FloorPct < RC_FLOOR_RV || rv2CapPct > RC_CAP_RV;
+
+    const isLow  = isLow1 || isLow2;
+    if(isLow) anyLow = true;
+    const isBase = (G1===base1);
+    const combined = pay1 + pay2;
+
+    html += `<tr style="${isBase?'background:#f0f5ff;':''}${isLow?'background:rgba(220,38,38,0.06);':''}">
+      <td style="text-align:center;font-weight:600;">${i+1}${isBase?' <span style="color:var(--accent);font-size:10px;">(기준)</span>':''}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:600;">${fmtW(G1)}</td>
+      <td style="text-align:right;font-family:monospace;">${fmtW(totalG1)}</td>
+      <td style="text-align:right;font-family:monospace;color:var(--accent);font-weight:600;">${fmtW(pay1)}</td>
+      <td style="text-align:right;font-family:monospace;${isLow1?'color:var(--red);font-weight:700;':''}">${fmtW(rv1)}${isLow1?' ⚠':''}</td>
+      <td style="text-align:center;font-weight:600;${isLow1?'color:var(--red);':''}">${fmtP(rv1FloorPct)}${isLow1?' ⚠':''}</td>
+      <td class="col-sep" style="text-align:right;font-family:monospace;font-weight:700;color:#0891b2;">${fmtW(g2Max)}</td>
+      <td style="text-align:right;font-family:monospace;">${fmtW(totalG2)}</td>
+      <td style="text-align:right;font-family:monospace;color:var(--accent2);font-weight:600;">${fmtW(pay2)}</td>
+      <td style="text-align:right;font-family:monospace;${isLow2?'color:var(--red);font-weight:700;':''}">${fmtW(rv2)}${isLow2?' ⚠':''}</td>
+      <td style="text-align:center;font-weight:600;${isLow2?'color:var(--red);':''}">${fmtP(rv2FloorPct)}${isLow2?' ⚠':''}</td>
+      <td class="col-sep" style="text-align:right;font-family:monospace;font-weight:700;background:#f8fafc;">${fmtW(combined)}</td>
+    </tr>`;
+  }
+
+  tbody.innerHTML = html;
+  document.getElementById('gt-warn-rv').style.display = anyLow ? '' : 'none';
+}
+
+function gtCalc(){
+  const cost = numVal('gt-cost');
+  const svc  = numVal('gt-svc');
+  const mrg  = fltVal('gt-margin');
+  if(_mode==='fee')          calcFeeMode(cost,svc,mrg);
+  else if(_mode==='pay')     calcPayMode(cost,svc,mrg);
+  else if(_mode==='paysum')  calcPaySumMode(cost,svc,mrg);
+  else                       calcMax2Mode(cost,svc,mrg);
+}
+
+/* ─── 엑셀 다운로드 ─── */
+/* '원' 접미사가 붙은 금액 셀을 숫자로 변환 (엑셀에는 금액 숫자만 노출) */
+function cleanWonCells(ws){
+  if(!ws['!ref']) return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let R=range.s.r; R<=range.e.r; R++){
+    for(let C=range.s.c; C<=range.e.c; C++){
+      const addr = XLSX.utils.encode_cell({r:R,c:C});
+      const cell = ws[addr];
+      if(!cell || typeof cell.v !== 'string') continue;
+      if(cell.v.includes('원')){
+        const cleaned = cell.v.replace(/⚠/g,'').replace(/원/g,'').replace(/,/g,'').trim();
+        const num = parseFloat(cleaned);
+        if(!isNaN(num)){
+          cell.v = num;
+          cell.t = 'n';
+          cell.z = '#,##0';
+          delete cell.w;
+        }
+      }
+    }
+  }
+}
+
+function downloadExcel(){
+  const cost = numVal('gt-cost');
+  const svc  = numVal('gt-svc');
+  const mrg  = fltVal('gt-margin');
+
+  const hasR2ForCheck = document.getElementById('gt-term2').value !== '0';
+  if((_mode==='fee' && (numVal('gt-base1')===0 || (hasR2ForCheck && numVal('gt-base2')===0))) ||
+     (_mode==='pay' && numVal('gt-pay')===0) ||
+     (_mode==='paysum' && numVal('gt-paysum')===0) ||
+     (_mode==='max2' && numVal('gt-m2-base1')===0)){
+    alert('먼저 값을 입력하여 테이블을 생성한 뒤 다운로드해 주세요.');
+    return;
+  }
+
+  const tableId = _mode==='fee' ? 'feeTable' : _mode==='pay' ? 'payTable' : _mode==='paysum' ? 'paySumTable' : 'max2Table';
+  const table = document.getElementById(tableId);
+
+  // 상단에 기본설정 요약 삽입
+  const infoRows = [
+    ['RE:ON 구독료 산정 테이블'],
+    ['제품원가', cost, '서비스 구독료(월)', svc, '목표 수익률(%)', mrg],
+  ];
+  if(_mode==='fee'){
+    const hasR2 = document.getElementById('gt-term2').value !== '0';
+    infoRows.push(['1회독 구독기간', document.getElementById('gt-term1').value+'개월',
+                    '1회독 기준 월구독료', numVal('gt-base1')]);
+    infoRows.push(['2회독 구독기간', hasR2 ? document.getElementById('gt-term2').value+'개월' : '없음 (1회독으로 종료)',
+                    '2회독 기준 월구독료', hasR2 ? numVal('gt-base2') : '-']);
+  } else if(_mode==='pay'){
+    infoRows.push(['목표 정산금액(회차당)', numVal('gt-pay')]);
+  } else if(_mode==='paysum'){
+    infoRows.push(['목표 정산금액(1회독+2회독 합계)', numVal('gt-paysum')]);
+  } else {
+    infoRows.push(['1회독 구독기간', document.getElementById('gt-m2-term1').value+'개월',
+                    '1회독 기준 월구독료', numVal('gt-m2-base1'),
+                    '2회독 구독기간', document.getElementById('gt-m2-term2').value+'개월']);
+  }
+  infoRows.push([]); // 빈 줄
+
+  const infoRowCount = infoRows.length;
+  const merged = XLSX.utils.aoa_to_sheet(infoRows);
+  XLSX.utils.sheet_add_dom(merged, table, {origin: infoRowCount});
+  cleanWonCells(merged);
+
+  const wb = XLSX.utils.book_new();
+  const sheetName = _mode==='fee' ? '월구독료기준' : _mode==='pay' ? '정산금액기준' : _mode==='paysum' ? '정산금액합계기준' : '2회독최대구독료';
+  XLSX.utils.book_append_sheet(wb, merged, sheetName);
+
+  const today = new Date();
+  const stamp = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  const filename = _mode==='fee'
+    ? `REON_구독료산정테이블_월구독료기준_${stamp}.xlsx`
+    : _mode==='pay'
+    ? `REON_구독료산정테이블_정산금액기준_${stamp}.xlsx`
+    : _mode==='paysum'
+    ? `REON_구독료산정테이블_정산금액합계기준_${stamp}.xlsx`
+    : `REON_구독료산정테이블_2회독최대구독료_${stamp}.xlsx`;
+
+  XLSX.writeFile(wb, filename);
+}
+
+function gtReset(){
+  if(!confirm('입력 내용을 모두 초기화할까요?')) return;
+  ['gt-cost','gt-svc','gt-base1','gt-base2','gt-pay','gt-paysum','gt-m2-base1'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('gt-margin').value='20';
+  document.getElementById('gt-term1').value='36';
+  document.getElementById('gt-term2').value='36';
+  document.getElementById('gt-m2-term1').value='36';
+  document.getElementById('gt-m2-term2').value='36';
+  const base2El = document.getElementById('gt-base2');
+  base2El.disabled = false;
+  base2El.placeholder = '0';
+  gtCalc();
+}
+
+gtCalc();
+</script>
+</body>
+</html>
