@@ -122,6 +122,7 @@
   }
 
   .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
   .round-card {
@@ -141,6 +142,7 @@
 
   @media (max-width: 860px) {
     .grid-3 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr; }
     .grid-2 { grid-template-columns: 1fr; }
     body { padding: 16px 12px; }
   }
@@ -153,7 +155,7 @@
     <div class="logo-badge">RE:ON</div>
     <div>
       <div class="page-title">📋 구독료 산정 테이블 생성기</div>
-      <div class="page-sub" id="pageSub">기준값 1개 입력 → 10,000원 단위 / 기간별 구간 자동 산출</div>
+      <div class="page-sub" id="pageSub">기준값 1개 입력 → 설정한 단위로 10개 구간 자동 산출</div>
     </div>
   </div>
   <button class="btn" onclick="gtReset()">↺ 초기화</button>
@@ -171,7 +173,7 @@
   <!-- 기본 설정 (공통) -->
   <div class="card">
     <div class="card-title"><span class="dot" style="background:var(--accent2);"></span>기본 설정</div>
-    <div class="grid-3">
+    <div class="grid-4">
       <div>
         <label class="form-label">제품원가 (VAT포함)</label>
         <div style="position:relative;">
@@ -194,6 +196,14 @@
           <input type="number" id="gt-margin" value="20" min="0" max="100" step="0.1"
             style="padding-right:28px;text-align:right;" oninput="gtCalc()">
           <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">%</span>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">구간 단위 (금액 증감폭)</label>
+        <div style="position:relative;">
+          <input type="text" id="gt-step" inputmode="numeric" value="10,000"
+            style="padding-right:30px;text-align:right;font-weight:600;" oninput="gtFmt(this);gtCalc()">
+          <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none;">원</span>
         </div>
       </div>
     </div>
@@ -313,7 +323,7 @@
       </div>
     </div>
     <div class="note-box" style="margin-top:10px;">
-      * 1회독 기준 월구독료를 1개 입력하면 10,000원 단위로 인하되는 10개 구간이 자동 산출되고, 각 구간의 1회독 정산금액·RV를 계산한 뒤, 2회독 종료 잔가율이 제품원가의 10% 미만으로 떨어지지 않는 선에서 2회독에 부과 가능한 <b>최대 월구독료(10,000원 단위 내림)</b>를 구간별로 산출합니다.
+      * 1회독 기준 월구독료를 1개 입력하면 상단 "구간 단위"만큼 인하되는 10개 구간이 자동 산출되고, 각 구간의 1회독 정산금액·RV를 계산한 뒤, 2회독 종료 잔가율이 제품원가의 10% 미만으로 떨어지지 않는 선에서 2회독에 부과 가능한 <b>최대 월구독료(구간 단위로 내림)</b>를 구간별로 산출합니다.
     </div>
   </div>
 
@@ -399,7 +409,7 @@
       * 정산금액 = 월구독료 × PV계수(연 8% 할인) − KBR 수수료(10%) × 구독기간<br>
       * 1회독 RV금액 = 제품원가 × (1 + 목표수익률) + 서비스구독료 누계 − 1회독 정산금액<br>
       * 2회독 RV금액 = 1회독 종료 RV × (1 + 목표수익률) + 서비스구독료 누계 − 2회독 정산금액 (2회독은 1회독 종료 시점의 RV를 이어받아 계산)<br>
-      * 각 회차 기준 월구독료를 1개씩 입력하면 10,000원 단위로 인하되는 10개 구간이 1:1로 매칭되어 자동 산출됩니다 (1구간 = 두 회독 모두 기준값)<br>
+      * 각 회차 기준 월구독료를 1개씩 입력하면 상단 "구간 단위"만큼 인하되는 10개 구간이 1:1로 매칭되어 자동 산출됩니다 (1구간 = 두 회독 모두 기준값)<br>
       * 잔가율 기준: 하한(10%)은 항상 제품원가 대비로 판정하고, 상한(95%)은 각 회차의 시작 원금 대비로 판정합니다 — 1회독은 제품원가, 2회독은 1회독 종료 RV(=2회독 시작 원금) 기준입니다. 둘 중 하나라도 벗어나면 붉은색으로 표시됩니다
     </div>
     <div class="note-box" id="notePay" style="display:none;">
@@ -417,9 +427,9 @@
       * 잔가율 기준: 하한(10%)은 제품원가 대비, 상한(95%)은 최종 회차의 시작 원금 대비로 판정하며, 둘 중 하나라도 벗어나면 붉은색으로 표시됩니다
     </div>
     <div class="note-box" id="noteMax2" style="display:none;">
-      * 1회독 기준 월구독료 1개를 입력하면 10,000원 단위로 인하되는 10개 구간이 자동 산출됩니다<br>
+      * 1회독 기준 월구독료 1개를 입력하면 상단 "구간 단위"만큼 인하되는 10개 구간이 자동 산출됩니다<br>
       * 1회독 RV = 제품원가 × (1 + 목표수익률) + 1회독 서비스구독료 누계 − 1회독 정산금액<br>
-      * 2회독 최대 월구독료 = 2회독 종료 RV가 제품원가의 10%(하한)에 정확히 도달하는 지점을 구간별로 구한 뒤, 10,000원 단위로 <b>내림</b>한 값입니다 (내림하지 않으면 하한 10%를 살짝 밑돌 수 있기 때문입니다)<br>
+      * 2회독 최대 월구독료 = 2회독 종료 RV가 제품원가의 10%(하한)에 정확히 도달하는 지점을 구간별로 구한 뒤, 설정한 "구간 단위"로 <b>내림</b>한 값입니다 (내림하지 않으면 하한 10%를 살짝 밑돌 수 있기 때문입니다)<br>
       * 이 최대값보다 낮은 월구독료는 모두 하한 10% 기준을 만족하며, 이보다 높이면 잔가율이 10% 미만으로 떨어져 진행이 불가합니다<br>
       * 상한(95%, 각 회차 시작 원금 대비)도 함께 확인하며, 두 기준 중 하나라도 벗어나면 붉은색으로 표시됩니다
     </div>
@@ -433,7 +443,11 @@ const KBR_FIXED   = 0;      // KBR 월 고정 수수료
 const KBR_PCT     = 0.10;   // KBR 변동 수수료 10%
 const RC_FLOOR_RV = 10;     // 잔가율 최소 10%
 const RC_CAP_RV   = 95;     // 잔가율 최대 95%
-const STEP        = 10000;  // 10,000원 단위
+const STEP_DEFAULT = 10000;
+function getStep(){
+  const v = numVal('gt-step');
+  return v > 0 ? v : STEP_DEFAULT;
+}
 const ROWS        = 10;
 
 let _mode = 'fee';
@@ -474,20 +488,22 @@ function setMode(mode){
   document.getElementById('notePay').style.display    = mode==='pay' ? '' : 'none';
   document.getElementById('notePaySum').style.display = mode==='paysum' ? '' : 'none';
   document.getElementById('noteMax2').style.display   = mode==='max2' ? '' : 'none';
+  const stepLabel = fmtW(getStep());
   document.getElementById('pageSub').textContent = mode==='fee'
-    ? '1회독 · 2회독 각 기준 월구독료 입력 → 10,000원 단위 10개 구간 자동 산출'
+    ? `1회독 · 2회독 각 기준 월구독료 입력 → ${stepLabel} 단위 10개 구간 자동 산출`
     : mode==='pay'
     ? '목표 정산금액(회차당) 1개 입력 → 12/24/36/48/60/72개월 구독료 자동 역산'
     : mode==='paysum'
     ? '목표 정산금액 합계 1개 입력 → 12/24/36/48/60/72개월 동일 구독료 자동 역산'
-    : '1회독 기준 월구독료 입력 → 2회독 최대 가능 월구독료(10,000원 단위) 자동 산출';
+    : `1회독 기준 월구독료 입력 → 2회독 최대 가능 월구독료(${stepLabel} 단위) 자동 산출`;
   gtCalc();
 }
 
 /* ─── [모드1] 월구독료 기준 ─── */
 function gtBuildRange(base){
+  const step = getStep();
   const vals = [];
-  for(let i=0;i<ROWS;i++) vals.push(base - STEP*i);
+  for(let i=0;i<ROWS;i++) vals.push(base - step*i);
   return vals;
 }
 
@@ -808,7 +824,8 @@ function calcMax2Mode(cost,svc,mrg){
 
     // 2회독 최대 월구독료: RV2가 하한(제품원가*10%)에 도달하는 지점까지, 10,000원 내림
     const g2Continuous = (rv1*(1+mrg/100) + ops2 - floorAmt) / denom2;
-    let g2Max = Math.floor(g2Continuous/STEP)*STEP;
+    const step2 = getStep();
+    let g2Max = Math.floor(g2Continuous/step2)*step2;
     if(g2Max < 0) g2Max = 0;
 
     const totalG2 = g2Max*term2;
@@ -903,7 +920,8 @@ function downloadExcel(){
   if(_mode==='fee'){
     const hasR2 = document.getElementById('gt-term2').value !== '0';
     infoRows.push(['1회독 구독기간', document.getElementById('gt-term1').value+'개월',
-                    '1회독 기준 월구독료', numVal('gt-base1')]);
+                    '1회독 기준 월구독료', numVal('gt-base1'),
+                    '구간 단위', getStep()]);
     infoRows.push(['2회독 구독기간', hasR2 ? document.getElementById('gt-term2').value+'개월' : '없음 (1회독으로 종료)',
                     '2회독 기준 월구독료', hasR2 ? numVal('gt-base2') : '-']);
   } else if(_mode==='pay'){
@@ -913,7 +931,8 @@ function downloadExcel(){
   } else {
     infoRows.push(['1회독 구독기간', document.getElementById('gt-m2-term1').value+'개월',
                     '1회독 기준 월구독료', numVal('gt-m2-base1'),
-                    '2회독 구독기간', document.getElementById('gt-m2-term2').value+'개월']);
+                    '2회독 구독기간', document.getElementById('gt-m2-term2').value+'개월',
+                    '구간 단위', getStep()]);
   }
   infoRows.push([]); // 빈 줄
 
@@ -945,6 +964,7 @@ function gtReset(){
     const el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('gt-margin').value='20';
+  document.getElementById('gt-step').value='10,000';
   document.getElementById('gt-term1').value='36';
   document.getElementById('gt-term2').value='36';
   document.getElementById('gt-m2-term1').value='36';
